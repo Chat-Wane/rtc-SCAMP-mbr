@@ -1,0 +1,26 @@
+{
+    "name": "scampjs",
+    "version": "0.0.1",
+    "author": "Chat-Wane <grumpy.chat.wane@gmail.com>",
+    "description": "Gossip-based dissemination protocol using the SCAMP membership management that automatically scales with the global size of the network without global knowledges.",
+    "main": "./lib/peer.js",
+    "repository": {
+	"type": "git",
+	"url": "https://github.com/chat-wane/SCAMPjs.git"
+    },
+    "keywords": [
+	"gossip",
+	"scamp",
+	"webrtc"
+    ],
+    "dependencies": {
+	"simple-peer": "3.6.x"
+    },
+    "bundledDependencies": [
+	"simple-peer"
+    ],
+    "license": "MIT",
+    "engines": {
+	"node": ">=0.10.33"
+    }
+}
