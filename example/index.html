@@ -1,0 +1,32 @@
+<html>
+  <head> <title>SCAMPjs</title> </head>
+  <body>
+    <textarea rows="5" cols="80" id="textID"></textarea> <br/>
+    <button type="button" id="offer">1. Make offer</button>
+    <button type="button" id="join">2. Accept offer</button>
+    <button type="button" id="handshake">3. Confirm handshake</button> <br/>
+
+
+    <script src="./jquery-2.1.1.min.js"></script>
+    <script src="../scampjs.bundle.js"></script>
+    <script>
+      var Peer = require('scampjs');
+      var p = new Peer(Math.floor(Math.random()*100));
+
+      $("#offer").click(function(){p.generateOffers(1)});
+      $("#join").click(function(){
+      var message = JSON.parse($("#textID").val());
+      p.onContact(message.uid, message.counter, message.offer);
+      });
+      $("#handshake").click(function(){
+      var message = JSON.parse($("#textID").val());
+      p.onContactAccepted(message.uid, message.destCounter, message.offer);
+      });
+
+      
+      p.on("offer", function(message){
+        $("#textID").val(JSON.stringify(message));
+      });
+    </script>
+  </body>
+</html>

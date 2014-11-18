@@ -1,6 +1,6 @@
 # SCAMPjs
 
-<i>Keywords: SCAMP, gossip, epidemic dissemination, webRTC </i>
+<i>Keywords: SCAMP, gossip, epidemic dissemination, WebRTC </i>
 
 This project is an attempt to provide a full browser gossip protocol with
 random peer sampling. More specifically, it implements the Scalable Membership
