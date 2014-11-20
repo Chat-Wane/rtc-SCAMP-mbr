@@ -6,14 +6,31 @@ module.exports.heartbeat = 30000;
 
 },{}],2:[function(require,module,exports){
 /*!
- * MessageAcceptedSubscription(uid,counter,destUid,destCounter,offer)
- * MessageSubscription(uid,counter,offer)
- * MessageOfferRequest(uid,destUid,k)
- * MessageOfferResponse(uid,destUid,offers)
- * MessageHeartbeat(uid)
+ * MSubscriptionRequest(uid,counter,offer)
+ * MSubscriptionResponse(uid,counter,destUid,destCounter,offer)
+ * MOfferRequest(uid,destUid,k)
+ * MOfferResponse(uid,destUid,offers)
+ * MHeartbeat(uid)
  */
 
 
+/*!
+ * \brief object which represents a subscription message from a peer to the
+ * network
+ * \param uid the unique identifier of the peer that created the message
+ * \param counter the local counter of the sender peer to ensure uniqueness
+ * \param offer the webrtc data required to open the connection. These data
+ * are the output of the Stun server.
+ */
+function MSubscriptionRequest(uid, counter, offer){
+    this.type = "MSubscriptionRequest";
+    this.category = "request";
+    this.uid = uid;
+    this.counter = counter;
+    this.offer = offer;
+};
+
+module.exports.MSubscriptionRequest = MSubscriptionRequest;
 
 /*!
  * \brief object that represents an accepted subscription message containing
@@ -25,8 +42,9 @@ module.exports.heartbeat = 30000;
  * \param offer the required webRTC data necessary to establish the p2p link
  */
 
-function MessageAcceptedSubscription(uid,counter, destUid, destCounter, offer){
-    this.type = "MessageAcceptedSubscription";
+function MSubscriptionResponse(uid,counter,destUid,destCounter,offer){
+    this.type = "MSubscriptionResponse";
+    this.category = "response"
     this.uid = uid;
     this.counter = counter;
     this.destUid = destUid;
@@ -34,56 +52,42 @@ function MessageAcceptedSubscription(uid,counter, destUid, destCounter, offer){
     this.offer = offer;
 };
 
-module.exports.MessageAcceptedSubscription = MessageAcceptedSubscription;
-
-/*!
- * \brief object which represents a subscription message from a peer to the
- * network
- * \param uid the unique identifier of the peer that created the message
- * \param counter the local counter of the sender peer to ensure uniqueness
- * \param offer the webrtc data required to open the connection. These data
- * are the output of the Stun server.
- */
-function MessageSubscription(uid, counter, offer){
-    this.type = "MessageSubscription";
-    this.uid = uid;
-    this.counter = counter;
-    this.offer = offer;
-};
-
-module.exports.MessageSubscription = MessageSubscription;
+module.exports.MSubscriptionResponse = MSubscriptionResponse;
 
 /*!
  * \brief object representing a message that request a number of offers in
  * order to contact the receiving peer
  * \param uid the unique site identifier that request the offers
- * \param destUid the unique site identifier that must provides these offers
+ * \param counter the local counter of the site when it made the request
  * \param k the number of offers to provide
  */
-function MessageOfferRequest(uid, destUid, k){
-    this.type = "MessageOfferRequest";
+function MOfferRequest(uid, counter, k){
+    this.type = "MOfferRequest";
+    this.category = "request";
     this.uid = uid;
-    this.destUid = destUid;
+    this.counter = counter;
     this.k = k;
 };
 
-module.exports.MessageOfferRequest = MessageOfferRequest;
+module.exports.MOfferRequest = MOfferRequest;
 
 /*!
  * \brief object that represents a response message to an offer request. It
  * contains the k offers
  * \param uid the unique site identifier that provide the offers
  * \param destUid the unique site identifier that requested the offers
+ * \param destCounter the counter of the site when he made the request
  * \param offers the list of offers provided
  */
-function MessageOfferResponse(uid, destUid, offers){
-    this.type = "MessageOfferResponse";
+function MOfferResponse(uid, destUid, destCounter, offers){
+    this.type = "MOfferResponse";
+    this.category = "response";
     this.uid = uid;
     this.destUid = destUid;
     this.offers = offers;
 };
 
-module.exports.MessageOfferResponse = MessageOfferResponse;
+module.exports.MOfferResponse = MOfferResponse;
 
 /*!
  * \brief object that represent an heartbeat message which only notify the
@@ -91,12 +95,13 @@ module.exports.MessageOfferResponse = MessageOfferResponse;
  * does not remove it from the its inView.
  * \param uid the unique site identifier of the sender
  */
-function MessageHeartbeat(uid){
-    this.type = "MessageHeartbeat";
+function MHeartbeat(uid){
+    this.type = "MHeartbeat";
+    this.category = "once"; // notforwarded && notReplied
     this.uid = uid;
 };
 
-module.exports.MessageHeartbeat = MessageHeartbeat;
+module.exports.MHeartbeat = MHeartbeat;
 
 },{}],3:[function(require,module,exports){
 
@@ -2088,6 +2093,260 @@ BigInt = module.exports = {
 })();
 
 },{}],13:[function(require,module,exports){
+;(function () { // closure for web browsers
+
+if (typeof module === 'object' && module.exports) {
+  module.exports = LRUCache
+} else {
+  // just set the global for non-node platforms.
+  this.LRUCache = LRUCache
+}
+
+function hOP (obj, key) {
+  return Object.prototype.hasOwnProperty.call(obj, key)
+}
+
+function naiveLength () { return 1 }
+
+function LRUCache (options) {
+  if (!(this instanceof LRUCache))
+    return new LRUCache(options)
+
+  if (typeof options === 'number')
+    options = { max: options }
+
+  if (!options)
+    options = {}
+
+  this._max = options.max
+  // Kind of weird to have a default max of Infinity, but oh well.
+  if (!this._max || !(typeof this._max === "number") || this._max <= 0 )
+    this._max = Infinity
+
+  this._lengthCalculator = options.length || naiveLength
+  if (typeof this._lengthCalculator !== "function")
+    this._lengthCalculator = naiveLength
+
+  this._allowStale = options.stale || false
+  this._maxAge = options.maxAge || null
+  this._dispose = options.dispose
+  this.reset()
+}
+
+// resize the cache when the max changes.
+Object.defineProperty(LRUCache.prototype, "max",
+  { set : function (mL) {
+      if (!mL || !(typeof mL === "number") || mL <= 0 ) mL = Infinity
+      this._max = mL
+      if (this._length > this._max) trim(this)
+    }
+  , get : function () { return this._max }
+  , enumerable : true
+  })
+
+// resize the cache when the lengthCalculator changes.
+Object.defineProperty(LRUCache.prototype, "lengthCalculator",
+  { set : function (lC) {
+      if (typeof lC !== "function") {
+        this._lengthCalculator = naiveLength
+        this._length = this._itemCount
+        for (var key in this._cache) {
+          this._cache[key].length = 1
+        }
+      } else {
+        this._lengthCalculator = lC
+        this._length = 0
+        for (var key in this._cache) {
+          this._cache[key].length = this._lengthCalculator(this._cache[key].value)
+          this._length += this._cache[key].length
+        }
+      }
+
+      if (this._length > this._max) trim(this)
+    }
+  , get : function () { return this._lengthCalculator }
+  , enumerable : true
+  })
+
+Object.defineProperty(LRUCache.prototype, "length",
+  { get : function () { return this._length }
+  , enumerable : true
+  })
+
+
+Object.defineProperty(LRUCache.prototype, "itemCount",
+  { get : function () { return this._itemCount }
+  , enumerable : true
+  })
+
+LRUCache.prototype.forEach = function (fn, thisp) {
+  thisp = thisp || this
+  var i = 0;
+  for (var k = this._mru - 1; k >= 0 && i < this._itemCount; k--) if (this._lruList[k]) {
+    i++
+    var hit = this._lruList[k]
+    if (this._maxAge && (Date.now() - hit.now > this._maxAge)) {
+      del(this, hit)
+      if (!this._allowStale) hit = undefined
+    }
+    if (hit) {
+      fn.call(thisp, hit.value, hit.key, this)
+    }
+  }
+}
+
+LRUCache.prototype.keys = function () {
+  var keys = new Array(this._itemCount)
+  var i = 0
+  for (var k = this._mru - 1; k >= 0 && i < this._itemCount; k--) if (this._lruList[k]) {
+    var hit = this._lruList[k]
+    keys[i++] = hit.key
+  }
+  return keys
+}
+
+LRUCache.prototype.values = function () {
+  var values = new Array(this._itemCount)
+  var i = 0
+  for (var k = this._mru - 1; k >= 0 && i < this._itemCount; k--) if (this._lruList[k]) {
+    var hit = this._lruList[k]
+    values[i++] = hit.value
+  }
+  return values
+}
+
+LRUCache.prototype.reset = function () {
+  if (this._dispose && this._cache) {
+    for (var k in this._cache) {
+      this._dispose(k, this._cache[k].value)
+    }
+  }
+
+  this._cache = Object.create(null) // hash of items by key
+  this._lruList = Object.create(null) // list of items in order of use recency
+  this._mru = 0 // most recently used
+  this._lru = 0 // least recently used
+  this._length = 0 // number of items in the list
+  this._itemCount = 0
+}
+
+// Provided for debugging/dev purposes only. No promises whatsoever that
+// this API stays stable.
+LRUCache.prototype.dump = function () {
+  return this._cache
+}
+
+LRUCache.prototype.dumpLru = function () {
+  return this._lruList
+}
+
+LRUCache.prototype.set = function (key, value) {
+  if (hOP(this._cache, key)) {
+    // dispose of the old one before overwriting
+    if (this._dispose) this._dispose(key, this._cache[key].value)
+    if (this._maxAge) this._cache[key].now = Date.now()
+    this._cache[key].value = value
+    this.get(key)
+    return true
+  }
+
+  var len = this._lengthCalculator(value)
+  var age = this._maxAge ? Date.now() : 0
+  var hit = new Entry(key, value, this._mru++, len, age)
+
+  // oversized objects fall out of cache automatically.
+  if (hit.length > this._max) {
+    if (this._dispose) this._dispose(key, value)
+    return false
+  }
+
+  this._length += hit.length
+  this._lruList[hit.lu] = this._cache[key] = hit
+  this._itemCount ++
+
+  if (this._length > this._max) trim(this)
+  return true
+}
+
+LRUCache.prototype.has = function (key) {
+  if (!hOP(this._cache, key)) return false
+  var hit = this._cache[key]
+  if (this._maxAge && (Date.now() - hit.now > this._maxAge)) {
+    return false
+  }
+  return true
+}
+
+LRUCache.prototype.get = function (key) {
+  return get(this, key, true)
+}
+
+LRUCache.prototype.peek = function (key) {
+  return get(this, key, false)
+}
+
+LRUCache.prototype.pop = function () {
+  var hit = this._lruList[this._lru]
+  del(this, hit)
+  return hit || null
+}
+
+LRUCache.prototype.del = function (key) {
+  del(this, this._cache[key])
+}
+
+function get (self, key, doUse) {
+  var hit = self._cache[key]
+  if (hit) {
+    if (self._maxAge && (Date.now() - hit.now > self._maxAge)) {
+      del(self, hit)
+      if (!self._allowStale) hit = undefined
+    } else {
+      if (doUse) use(self, hit)
+    }
+    if (hit) hit = hit.value
+  }
+  return hit
+}
+
+function use (self, hit) {
+  shiftLU(self, hit)
+  hit.lu = self._mru ++
+  self._lruList[hit.lu] = hit
+}
+
+function trim (self) {
+  while (self._lru < self._mru && self._length > self._max)
+    del(self, self._lruList[self._lru])
+}
+
+function shiftLU (self, hit) {
+  delete self._lruList[ hit.lu ]
+  while (self._lru < self._mru && !self._lruList[self._lru]) self._lru ++
+}
+
+function del (self, hit) {
+  if (hit) {
+    if (self._dispose) self._dispose(hit.key, hit.value)
+    self._length -= hit.length
+    self._itemCount --
+    delete self._cache[ hit.key ]
+    shiftLU(self, hit)
+  }
+}
+
+// classy, since V8 prefers predictable objects.
+function Entry (key, value, lu, length, now) {
+  this.key = key
+  this.value = value
+  this.lu = lu
+  this.length = length
+  this.now = now
+}
+
+})()
+
+},{}],14:[function(require,module,exports){
 module.exports = Peer
 
 var debug = require('debug')('simple-peer')
@@ -2397,7 +2656,7 @@ DataStream.prototype._write = function (chunk, encoding, cb) {
   this._peer.send(chunk, cb)
 }
 
-},{"debug":14,"events":28,"extend.js":17,"hat":18,"inherits":19,"is-typedarray":20,"once":22,"stream":43,"typedarray-to-buffer":23}],14:[function(require,module,exports){
+},{"debug":15,"events":29,"extend.js":18,"hat":19,"inherits":20,"is-typedarray":21,"once":23,"stream":44,"typedarray-to-buffer":24}],15:[function(require,module,exports){
 
 /**
  * This is the web browser implementation of `debug()`.
@@ -2546,7 +2805,7 @@ function load() {
 
 exports.enable(load());
 
-},{"./debug":15}],15:[function(require,module,exports){
+},{"./debug":16}],16:[function(require,module,exports){
 
 /**
  * This is the common logic for both the Node.js and web browser
@@ -2745,7 +3004,7 @@ function coerce(val) {
   return val;
 }
 
-},{"ms":16}],16:[function(require,module,exports){
+},{"ms":17}],17:[function(require,module,exports){
 /**
  * Helpers.
  */
@@ -2858,7 +3117,7 @@ function plural(ms, n, name) {
   return Math.ceil(ms / n) + ' ' + name + 's';
 }
 
-},{}],17:[function(require,module,exports){
+},{}],18:[function(require,module,exports){
 /**
  * Extend an object with another.
  *
@@ -2880,7 +3139,7 @@ module.exports = function(src) {
   return src;
 }
 
-},{}],18:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 var hat = module.exports = function (bits, base) {
     if (!base) base = 16;
     if (bits === undefined) bits = 128;
@@ -2944,7 +3203,7 @@ hat.rack = function (bits, base, expandBy) {
     return fn;
 };
 
-},{}],19:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -2969,7 +3228,7 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],20:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 module.exports      = isTypedArray
 isTypedArray.strict = isStrictTypedArray
 isTypedArray.loose  = isLooseTypedArray
@@ -3010,7 +3269,7 @@ function isLooseTypedArray(arr) {
   return names[toString.call(arr)]
 }
 
-},{}],21:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 // Returns a wrapper function that returns a wrapped callback
 // The wrapper function should do some stuff, and return a
 // presumably different callback function.
@@ -3045,7 +3304,7 @@ function wrappy (fn, cb) {
   }
 }
 
-},{}],22:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 var wrappy = require('wrappy')
 module.exports = wrappy(once)
 
@@ -3068,7 +3327,7 @@ function once (fn) {
   return f
 }
 
-},{"wrappy":21}],23:[function(require,module,exports){
+},{"wrappy":22}],24:[function(require,module,exports){
 (function (Buffer){
 /**
  * Convert a typed array to a Buffer without a copy
@@ -3091,7 +3350,7 @@ module.exports = function (arr) {
 }
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":24}],24:[function(require,module,exports){
+},{"buffer":25}],25:[function(require,module,exports){
 /*!
  * The buffer module from node.js, for the browser.
  *
@@ -4144,7 +4403,7 @@ function decodeUtf8Char (str) {
   }
 }
 
-},{"base64-js":25,"ieee754":26,"is-array":27}],25:[function(require,module,exports){
+},{"base64-js":26,"ieee754":27,"is-array":28}],26:[function(require,module,exports){
 var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 ;(function (exports) {
@@ -4266,7 +4525,7 @@ var lookup = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 	exports.fromByteArray = uint8ToBase64
 }(typeof exports === 'undefined' ? (this.base64js = {}) : exports))
 
-},{}],26:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 exports.read = function(buffer, offset, isLE, mLen, nBytes) {
   var e, m,
       eLen = nBytes * 8 - mLen - 1,
@@ -4352,7 +4611,7 @@ exports.write = function(buffer, value, offset, isLE, mLen, nBytes) {
   buffer[offset + i - d] |= s * 128;
 };
 
-},{}],27:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 
 /**
  * isArray
@@ -4387,7 +4646,7 @@ module.exports = isArray || function (val) {
   return !! val && '[object Array]' == str.call(val);
 };
 
-},{}],28:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -4690,14 +4949,14 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}],29:[function(require,module,exports){
-module.exports=require(19)
-},{"/Users/chat-wane/Desktop/project/SCAMPjs/node_modules/simple-peer/node_modules/inherits/inherits_browser.js":19}],30:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
+module.exports=require(20)
+},{"/Users/chat-wane/Desktop/project/SCAMPjs/node_modules/simple-peer/node_modules/inherits/inherits_browser.js":20}],31:[function(require,module,exports){
 module.exports = Array.isArray || function (arr) {
   return Object.prototype.toString.call(arr) == '[object Array]';
 };
 
-},{}],31:[function(require,module,exports){
+},{}],32:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -4785,10 +5044,10 @@ process.chdir = function (dir) {
     throw new Error('process.chdir is not supported');
 };
 
-},{}],32:[function(require,module,exports){
+},{}],33:[function(require,module,exports){
 module.exports = require("./lib/_stream_duplex.js")
 
-},{"./lib/_stream_duplex.js":33}],33:[function(require,module,exports){
+},{"./lib/_stream_duplex.js":34}],34:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -4881,7 +5140,7 @@ function forEach (xs, f) {
 }
 
 }).call(this,require('_process'))
-},{"./_stream_readable":35,"./_stream_writable":37,"_process":31,"core-util-is":38,"inherits":29}],34:[function(require,module,exports){
+},{"./_stream_readable":36,"./_stream_writable":38,"_process":32,"core-util-is":39,"inherits":30}],35:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -4929,7 +5188,7 @@ PassThrough.prototype._transform = function(chunk, encoding, cb) {
   cb(null, chunk);
 };
 
-},{"./_stream_transform":36,"core-util-is":38,"inherits":29}],35:[function(require,module,exports){
+},{"./_stream_transform":37,"core-util-is":39,"inherits":30}],36:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -5915,7 +6174,7 @@ function indexOf (xs, x) {
 }
 
 }).call(this,require('_process'))
-},{"_process":31,"buffer":24,"core-util-is":38,"events":28,"inherits":29,"isarray":30,"stream":43,"string_decoder/":44}],36:[function(require,module,exports){
+},{"_process":32,"buffer":25,"core-util-is":39,"events":29,"inherits":30,"isarray":31,"stream":44,"string_decoder/":45}],37:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -6127,7 +6386,7 @@ function done(stream, er) {
   return stream.push(null);
 }
 
-},{"./_stream_duplex":33,"core-util-is":38,"inherits":29}],37:[function(require,module,exports){
+},{"./_stream_duplex":34,"core-util-is":39,"inherits":30}],38:[function(require,module,exports){
 (function (process){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -6517,7 +6776,7 @@ function endWritable(stream, state, cb) {
 }
 
 }).call(this,require('_process'))
-},{"./_stream_duplex":33,"_process":31,"buffer":24,"core-util-is":38,"inherits":29,"stream":43}],38:[function(require,module,exports){
+},{"./_stream_duplex":34,"_process":32,"buffer":25,"core-util-is":39,"inherits":30,"stream":44}],39:[function(require,module,exports){
 (function (Buffer){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -6627,10 +6886,10 @@ function objectToString(o) {
   return Object.prototype.toString.call(o);
 }
 }).call(this,require("buffer").Buffer)
-},{"buffer":24}],39:[function(require,module,exports){
+},{"buffer":25}],40:[function(require,module,exports){
 module.exports = require("./lib/_stream_passthrough.js")
 
-},{"./lib/_stream_passthrough.js":34}],40:[function(require,module,exports){
+},{"./lib/_stream_passthrough.js":35}],41:[function(require,module,exports){
 var Stream = require('stream'); // hack to fix a circular dependency issue when used with browserify
 exports = module.exports = require('./lib/_stream_readable.js');
 exports.Stream = Stream;
@@ -6640,13 +6899,13 @@ exports.Duplex = require('./lib/_stream_duplex.js');
 exports.Transform = require('./lib/_stream_transform.js');
 exports.PassThrough = require('./lib/_stream_passthrough.js');
 
-},{"./lib/_stream_duplex.js":33,"./lib/_stream_passthrough.js":34,"./lib/_stream_readable.js":35,"./lib/_stream_transform.js":36,"./lib/_stream_writable.js":37,"stream":43}],41:[function(require,module,exports){
+},{"./lib/_stream_duplex.js":34,"./lib/_stream_passthrough.js":35,"./lib/_stream_readable.js":36,"./lib/_stream_transform.js":37,"./lib/_stream_writable.js":38,"stream":44}],42:[function(require,module,exports){
 module.exports = require("./lib/_stream_transform.js")
 
-},{"./lib/_stream_transform.js":36}],42:[function(require,module,exports){
+},{"./lib/_stream_transform.js":37}],43:[function(require,module,exports){
 module.exports = require("./lib/_stream_writable.js")
 
-},{"./lib/_stream_writable.js":37}],43:[function(require,module,exports){
+},{"./lib/_stream_writable.js":38}],44:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -6775,7 +7034,7 @@ Stream.prototype.pipe = function(dest, options) {
   return dest;
 };
 
-},{"events":28,"inherits":29,"readable-stream/duplex.js":32,"readable-stream/passthrough.js":39,"readable-stream/readable.js":40,"readable-stream/transform.js":41,"readable-stream/writable.js":42}],44:[function(require,module,exports){
+},{"events":29,"inherits":30,"readable-stream/duplex.js":33,"readable-stream/passthrough.js":40,"readable-stream/readable.js":41,"readable-stream/transform.js":42,"readable-stream/writable.js":43}],45:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -6998,14 +7257,14 @@ function base64DetectIncompleteChar(buffer) {
   this.charLength = this.charReceived ? 3 : 0;
 }
 
-},{"buffer":24}],45:[function(require,module,exports){
+},{"buffer":25}],46:[function(require,module,exports){
 module.exports = function isBuffer(arg) {
   return arg && typeof arg === 'object'
     && typeof arg.copy === 'function'
     && typeof arg.fill === 'function'
     && typeof arg.readUInt8 === 'function';
 }
-},{}],46:[function(require,module,exports){
+},{}],47:[function(require,module,exports){
 (function (process,global){
 // Copyright Joyent, Inc. and other Node contributors.
 //
@@ -7595,19 +7854,19 @@ function hasOwnProperty(obj, prop) {
 }
 
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./support/isBuffer":45,"_process":31,"inherits":29}],"scampjs":[function(require,module,exports){
+},{"./support/isBuffer":46,"_process":32,"inherits":30}],"scampjs":[function(require,module,exports){
 var EventEmitter = require('events').EventEmitter;
 var SimplePeer = require('simple-peer');
+var LRU = require('lru-cache');
 var Track = require('causaltrack').IVV;
 var util = require('util');
 require('./util.js');
 
-var MessageAcceptedSubscription=
-    require('./messages.js').MessageAcceptedSubscription;
-var MessageOfferResponse = require('./messages.js').MessageOfferResponse;
-var MessageOfferRequest = require('./messages.js').MessageOfferRequest;
-var MessageSubscription = require('./messages.js').MessageSubscription;
-var MessageHeartbeat = require('./messages.js').MessageHeartbeat;
+var MSubscriptionResponse = require('./messages.js').MSubscriptionResponse;
+var MSubscriptionRequest = require('./messages.js').MSubscriptionRequest;
+var MOfferResponse = require('./messages.js').MOfferResponse;
+var MOfferRequest = require('./messages.js').MOfferRequest;
+var MHeartbeat = require('./messages.js').MHeartbeat;
 
 var ViewEntry = require('./viewentry.js');
 var Conf = require('./config.js');
@@ -7635,11 +7894,14 @@ function Peer(uid){
     // #3 webRTC pending messages (TODO) remove them when no pending anymore
     this.sub = [];
 
+    // #4 backtracking messages using (uid x counter) -> FromChannel
+    this.backtrack = LRU(500);
+
     // #4 heartbeat messages are sent regularly to update inView
     var self = this;
     setInterval(function(){
 	if (self.partialView.length>0){
-	    self.broadcast(new MessageHeartbeat(uid));
+	    self.broadcast(new MHeartbeat(uid));
 	}}, Conf.heartbeat);
 };
 
@@ -7648,17 +7910,19 @@ function Peer(uid){
  * \param k the number of offers to generate
  */
 Peer.prototype.generateOffers = function(k){
+    var offers = [];
     var self = this;
     var length = this.sub.length;
     for (var i = 0; i<k; ++i){
 	var pair = this.track.increment();
 	var link = new SimplePeer({initiator:true});
 	link.index = this.sub.length;
-	this.sub.push(new MessageSubscription(pair._e,
-					      pair._c,
-					      []));
+	this.sub.push(new MSubscriptionRequest(pair._e,
+					       pair._c,
+					       []));
 	this.pending.push(link);
 	this.setLink(link);
+	offers.push(this.sub[i]);
     };
     
     setTimeout(function(){
@@ -7666,6 +7930,8 @@ Peer.prototype.generateOffers = function(k){
 	    self.emit("offer", self.sub[i]);
 	};
     }, 3000);
+    
+    return offers;
 };
 
 /*! 
@@ -7686,21 +7952,27 @@ Peer.prototype.onContact = function(uid, counter, offer){
     firstLink.index = this.sub.length;
     // #2 initialize the accept message and put the link in pending
     var pair = self.track.increment();
-    this.sub.push(new MessageAcceptedSubscription(pair._e,
-						  pair._c,
-						  uid,
-						  counter,
-						  []));
+    this.sub.push(new MSubscriptionResponse(pair._e, pair._c,
+					    uid, counter,
+					    []));
     this.pending.push(firstLink);
     this.setLink(firstLink);
     // #3 preparing the link to send some offer into the network
     firstLink.on("message", function(message){
-	if (message.type == "MessageOfferRequest"){
-	    if (message.destUid == self.track.local.e){
-		console.log("Ok friend! Here are the " + message.k +
-			    "requested offers! :3");
-	    };
+	if (message.type == "MOfferRequest"){
+	    var offers = self.generateOffers(message.k);
+	    setTimeout(function(){
+		firstLink.send(new MOfferResponse(self.track.local.e,
+						  message.uid, message.counter,
+						  offers));}, 3000);
+	    console.log("Ok friend! Here are the " + message.k +
+			" requested offers! :3");
 	};
+    });
+    firstLink.on("ready", function(){
+	var viewEntry = new ViewEntry(uid,this);
+	var position  = self.partialView.binaryIndexOf(uid);
+	self.partialView.splice(-position,0,viewEntry);
     });
     
     setTimeout(function(){self.emit("offer",self.sub[firstLink.index]);},3000);
@@ -7718,11 +7990,14 @@ Peer.prototype.onContactAccepted = function(uid, counter, offer){
     var self = this;
     var position = counter-1;
     this.pending[position].on("ready", function(){
-	console.log("Send me " + self.partialView.length + " offers, friend.");
+	console.log("Send me " + self.partialView.length+1+" offers, friend.");
 	self.pending[position].send(
-	    new MessageOfferRequest(self.track.local.e,
-				    uid,
-				    self.partialView.length));
+	    new MOfferRequest(self.track.local.e,
+			      uid,
+			      self.partialView.length + 1 + Conf.c));
+	var viewEntry = new ViewEntry(uid, this);
+	var pos = self.inView.binaryIndexOf(uid);
+	self.inView.splice(pos,0,viewEntry);
     });
     for (var i = 0; i<offer.length; ++i){
 	this.pending[position].signal(offer[i]);	
@@ -7742,7 +8017,7 @@ Peer.prototype.setLink = function(link){
 	console.log("New friend, yaay ! :3");
     });
     link.on('message', function(message){
-	self.receive(message);
+	self.receive(link, message);
     });
 }
 
@@ -7751,16 +8026,17 @@ Peer.prototype.setLink = function(link){
  * a new subscription message will be redirected to the function onSubscription
  * \param message the received message
  */
-Peer.prototype.receive = function(message){
-/*    if (message typeof MessageHeartbeat){
-	return;
+Peer.prototype.receive = function(link, message){
+    // #0 check if we already received this message in the past
+    // #1 check if the message is for "this" peer
+    if (message.type == "MOfferResponse"){
+	console.log("Just received "+message.offers.length+" offers!!");
+	self.onSubscription(message.uid, message.offers); return;
     };
-    if (message typeof MessageSubscription){
-	return;
+    if (message.type == "MHeartbeat"){
+	console.log("Peer "+message.uid+" is alive! Good to know :3"); return;
     };
-    if (message typeof MessageAcceptedSubscription){
-	return;
-    };*/
+    // #2 check if the message is a response to backtrack
 };
 
 
@@ -7775,13 +8051,9 @@ Peer.prototype.broadcast = function(message){
     // (TODO) change for a more reliable way to crawl the array
     // i.e., if a peer link dies, this function may crash
     // #0 verify if the message has already been seen (TODO)
-    if (("uid" in message) && ("counter" in message) &&
-	(message.uid != this.track.local.e) &&
-	!this.track.isLower({_e:message.uid, _c:message.counter})) {
-	// #1 browse the partialView and send the message
-	for (var i = 0; i<this.partialView.length; ++i){
-	    this.partialView[i].send(message);
-	};
+    // #1 browse the partialView and send the message
+    for (var i = 0; i<this.partialView.length; ++i){
+	this.partialView[i].link.send(message);
     };
 };
 
@@ -7789,14 +8061,17 @@ Peer.prototype.broadcast = function(message){
  * \brief received a subscription message. This function choose if it keeps
  * the subscription in its partialView or it forwards it.
  * \param uid the unique site identifier which wants to enter in the network
- * \param dataList the informations to contact this peer directly via webRTC
+ * \param offers the informations to contact this peer directly via webRTC
  */
-Peer.prototype.onSubscription = function(uid, dataList){
+Peer.prototype.onSubscription = function(uid, offers){
+    // #0 if our partialView is empty, we keep the offer for ourself
+    if ((this.partialView.length == 0) && (offers.length != 0)){
+	
+    }
     // #1 forward the subscription to each peer in the partialView + c
     // additionnal copies of the subscription
-    // (TODO) deterministically choose the peers + c at random
     var rn = Math.floor(Math.random()*this.partialView.length);
-    this.partialView[rn].send(new MessageSubscription(uid, dataList));
+    //this.partialView[rn].send(new MSubscriptionRequest(uid, offers));
 };
 
 /*!
@@ -7830,9 +8105,9 @@ Peer.prototype.onForwardedSubscription = function(uid, dataList){
 	    setTimeout(function(i){
 		var pair = self.track.increment();
 		self.broadcast(
-		    new MessageAcceptedSubscription(pair._e, pair._c,
-						    uid,
-						    self.offers[i]));
+		    new MSubscriptionResponse(pair._e, pair._c,
+					      uid,
+					      self.offers[i]));
 	    }, 3000, contact.index);
 	    
 	    contact.on("ready", function(data){
@@ -7848,4 +8123,4 @@ Peer.prototype.onForwardedSubscription = function(uid, dataList){
 
 module.exports = Peer;
 
-},{"./config.js":1,"./messages.js":2,"./util.js":3,"./viewentry.js":4,"causaltrack":5,"events":28,"simple-peer":13,"util":46}]},{},[]);
+},{"./config.js":1,"./messages.js":2,"./util.js":3,"./viewentry.js":4,"causaltrack":5,"events":29,"lru-cache":13,"simple-peer":14,"util":47}]},{},[]);
