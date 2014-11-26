@@ -14,9 +14,11 @@
 	"webrtc"
     ],
     "dependencies": {
+	"lru-cache": "2.5.x",
 	"simple-peer": "3.6.x"
     },
     "bundledDependencies": [
+	"lru-cache",
 	"simple-peer"
     ],
     "license": "MIT",
