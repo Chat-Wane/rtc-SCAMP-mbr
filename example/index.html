@@ -13,20 +13,25 @@
       var Peer = require('scampjs');
       var p = new Peer(Math.floor(Math.random()*100));
 
-      $("#offer").click(function(){p.generateOffers(1)});
+      $("#offer").click(function(){p.generateFirst()});
       $("#join").click(function(){
       var message = JSON.parse($("#textID").val());
-      p.onContact(message.uid, message.counter, message.offer);
+      p.onSubscription(message.uid, message.counter, message.offer);
       });
       $("#handshake").click(function(){
       var message = JSON.parse($("#textID").val());
-      p.onContactAccepted(message.uid, message.destCounter, message.offer);
+      p.acceptContact(message.uid, message.destCounter, message.offer);
       });
 
       
-      p.on("offer", function(message){
+      p.on("first", function(message){
         $("#textID").val(JSON.stringify(message));
       });
+      
+      p.on("contact", function(message){
+        $("#textID").val(JSON.stringify(message));
+      });
+      
     </script>
   </body>
 </html>
