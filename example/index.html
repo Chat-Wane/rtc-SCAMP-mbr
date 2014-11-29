@@ -11,12 +11,12 @@
     <script src="../scampjs.bundle.js"></script>
     <script>
       var Peer = require('scampjs');
-      var p = new Peer(Math.floor(Math.random()*100));
+      var p = new Peer(Math.floor(Math.random()*1000));
 
       $("#offer").click(function(){p.generateFirst()});
       $("#join").click(function(){
       var message = JSON.parse($("#textID").val());
-      p.onSubscription(message.uid, message.counter, message.offer);
+      p.onContact(message.uid, message.counter, message.offer);
       });
       $("#handshake").click(function(){
       var message = JSON.parse($("#textID").val());
