@@ -18,7 +18,7 @@ manually sharing a piece of data (e.g. by mail).
 ## Usage
 
 The module has been [browserified](http://browserify.org) and
-[uglified](https://github.com/mishoo/UglifyJS). To include LSEQTree within
+[uglified](https://github.com/mishoo/UglifyJS). To include SCAMPjs within
 your browser, put the following line in your html:
 
 ```html
