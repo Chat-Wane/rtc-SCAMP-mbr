@@ -4,8 +4,11 @@
     <textarea rows="5" cols="80" id="textID"></textarea> <br/>
     <button type="button" id="offer">1. Make offer</button>
     <button type="button" id="join">2. Accept offer</button>
-    <button type="button" id="handshake">3. Confirm handshake</button> <br/>
-
+    <button type="button" id="handshake">3. Confirm handshake</button>
+    <br/>  <!-- ugly but whatever, just an example -->
+    <br/>
+    <br/>
+    <div id="log"></div>
 
     <script src="./jquery-2.1.1.min.js"></script>
     <script src="../scampjs.bundle.js"></script>
@@ -23,6 +26,10 @@
       p.acceptContact(message.uid, message.destCounter, message.offer);
       });
 
+      setInterval( function(){
+       p.broadcast("hello my name is "+ p.track.local.e);
+      }, Math.floor(Math.random()*5000)+15000 );
+
       
       p.on("first", function(message){
         $("#textID").val(JSON.stringify(message));
@@ -30,6 +37,10 @@
       
       p.on("contact", function(message){
         $("#textID").val(JSON.stringify(message));
+      });
+
+      p.on("receive", function(message){
+        $("#log").html( $("#log").html() + message + "<br/>" );
       });
       
     </script>
