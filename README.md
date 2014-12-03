@@ -63,7 +63,7 @@ peer1337.onContact(message.uid, message.counter, message.offer);
 // check if the uid of the 'first' message correspond to this message.destUid).
 peer1337.on("contact", function(message){
   console.log(JSON.stringify(message));
-};
+});
 ```
 
 ```js
