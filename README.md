@@ -1,6 +1,7 @@
 # SCAMPjs
 
-<i>Keywords: SCAMP, gossip, epidemic dissemination, WebRTC </i>
+<i>Keywords: SCAMP, scalable membership, gossip, epidemic dissemination,
+WebRTC</i>
 
 This project is an attempt to provide a full browser gossip protocol with
 random peer sampling. More specifically, it implements the Scalable Membership
@@ -30,7 +31,7 @@ Within your html, you can use this project as a node module:
 ```js
 var Peer = require("scampjs");
 
-// #1 initialize the peer with a unique site identifier
+// #1 initialise the peer with a unique site identifier
 var peer42 = new Peer(42);
 
 // #2 when you are ready to join a network, you must prepare a message. By
@@ -38,7 +39,7 @@ var peer42 = new Peer(42);
 peer42.initiate();
 
 // #3 the event is finally triggered. It contains the message to send to a
-// peer within then network. It is the responsability of the user to send it
+// peer within then network. It is the responsibility of the user to send it
 // to this peer.
 peer42.on("first", function(message){
   console.log(JSON.stringify(message)); // example: output in the console
@@ -56,8 +57,8 @@ var peer1337 = new Peer(1337);
 // '42'.
 peer1337.onContact(message.uid, message.counter, message.offer);
 
-// #B the event has a message which must be signaled to the peer '42'. Once
-// again, it is the responsability of the user to send the message to
+// #B the event has a message which must be signalled to the peer '42'. Once
+// again, it is the responsibility of the user to send the message to
 // the latter. Careful: the message must correspond to the offer (to be sure,
 // check if the uid of the 'first' message correspond to this message.destUid).
 peer1337.on("contact", function(message){
@@ -67,11 +68,11 @@ peer1337.on("contact", function(message){
 
 ```js
 // #4 back to the peer '42'. Assuming that the user received the message from
-// peer '1337', he must call the following function that will finalize the
+// peer '1337', he must call the following function that will finalise the
 // connection with the rest of the network.
 peer42.acceptContact(message.uid, message.counter, message.offer);
 
-// #5 afterward, peer '42' is able to broadcast its messages to the network.
+// #5 afterwards, peer '42' is able to broadcast its messages to the network.
 peer42.broadcast("hello world");
 ```
 
@@ -81,6 +82,34 @@ peer1337.on('receive', function(message){
   console.log(message) // "hello world"
 });
 ```
+
+## Example
+
+There is a small example in the eponymous folder. To start it, follow the
+steps:
+<ol>
+  <li>Download or clone the project</li>
+  <li>Open the index.html file with any WebRTC compatible web
+  browser (e.g. Chrome)</li>
+  <li>Click on "1. Make offer". 3 seconds later, a string appears in the
+  text area. Copy the string.</li>
+  <li>Open a new tab with the same html file and paste the string inside the
+  empty textarea.</li>
+  <li>Click on "2. Accept offer". 3 seconds later, the string in the text area
+  changes. Copy the string.</li>
+  <li>In the first tab, erase the text area and paste string.</li>
+  <li>Click on "3. Confirm handshake"</li>
+  <li>The connection has started between the two tabs</li>
+</ol>
+
+To connect more peers, follow the same process: create a new tab, generate the
+offer, copy it to a tab which is already connected to the network and click on
+"2. Accept offer". Few seconds later, the text changes. Copy it to the new tab
+and "3. Handshake".  The peer is now connected to the network.
+
+In this example, each peer regularly broadcasts their name. Also, when they
+receive a broadcast message, they print it in the page. Normally, in each
+connected tab, the name of every other peers should appear.
 
 ## References
 
