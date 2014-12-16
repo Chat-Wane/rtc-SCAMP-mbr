@@ -70,7 +70,7 @@ peer1337.on("contact", function(message){
 // #4 back to the peer '42'. Assuming that the user received the message from
 // peer '1337', he must call the following function that will finalise the
 // connection with the rest of the network.
-peer42.acceptContact(message.uid, message.counter, message.offer);
+peer42.acceptContact(message.uid, message.destCounter, message.offer);
 
 // #5 afterwards, peer '42' is able to broadcast its messages to the network.
 peer42.broadcast("hello world");
