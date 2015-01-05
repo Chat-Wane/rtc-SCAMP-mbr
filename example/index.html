@@ -30,6 +30,12 @@
        p.broadcast("hello my name is "+ p.track.local.e);
       }, Math.floor(Math.random()*5000)+15000 );
 
+      setInterval( function(){
+      var rn = Math.floor(Math.random()*p.partialView.length());
+      var message = {payload:"private message from "+p.uid};
+      p.send(message, p.partialView.get(rn).link);
+      }, Math.floor(Math.random()*10000)+15000 );
+
       
       p.on("first", function(message){
         $("#textID").val(JSON.stringify(message));
