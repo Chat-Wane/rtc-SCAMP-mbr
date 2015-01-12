@@ -16,7 +16,7 @@ to ease the initialisation phase of the membership. Thus, this project aims
 to fill this gap. Such implementation would allow building distributed
 network by only manually sharing a piece of data (e.g. by mail, via URL...).
 
-## Installation
+## Installation (TODO)
 
 You can use the node packet manager to get the
 module: ```$ npm install rtc-SCAMP-mbr```
@@ -24,14 +24,14 @@ module: ```$ npm install rtc-SCAMP-mbr```
 ## Usage
 
 This membership protocol implements and provides
-the [p2pnetwork API](http://https://github.com/justayak/network).
+the [p2pnetwork API](https://github.com/justayak/network).
 
 ## Example
 
 An example is available at the
 [rtc-SCAMP project page](http://github.com/chat-wane/rtc-SCAMP) which uses
-the SCAMP membership protocol with a simple broadcast mechanism. This
-composition creates a working network within your browser.
+this SCAMP membership protocol paired with a [simple broadcast mechanism](http://github.com/chat-wane/PrimitiveBroadcastDefinition). This composition creates
+a working network within your browser.
 
 ## References
 
