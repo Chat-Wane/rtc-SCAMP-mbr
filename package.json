@@ -16,11 +16,13 @@
     ],
     "dependencies": {
 	"lru-cache": "2.5.x",
-	"simple-peer": "3.6.x"
+	"simple-peer": "3.6.x",
+        "sorted-cmp-array": "2.0.x"
     },
     "bundledDependencies": [
 	"lru-cache",
-	"simple-peer"
+	"simple-peer",
+        "sorted-cmp-array"
     ],
     "license": "MIT",
     "engines": {
