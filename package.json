@@ -6,7 +6,7 @@
     "main": "./lib/scamp.js",
     "repository": {
 	"type": "git",
-	"url": "https://github.com/chat-wane/SCAMPjs.git"
+	"url": "https://github.com/chat-wane/rtc-SCAMP-mbr.git"
     },
     "keywords": [
 	"gossip",
