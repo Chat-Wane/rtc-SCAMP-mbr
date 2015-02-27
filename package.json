@@ -1,6 +1,6 @@
 {
     "name": "rtc-scamp-mbr",
-    "version": "0.0.4",
+    "version": "0.0.5",
     "author": "Chat-Wane <grumpy.chat.wane@gmail.com>",
     "description": "Nodejs implementation of the scalable membership protocol (SCAMP) where each peer automatically resizes its local partial views of the network without global knowledges of it.",
     "main": "./lib/scamp.js",
